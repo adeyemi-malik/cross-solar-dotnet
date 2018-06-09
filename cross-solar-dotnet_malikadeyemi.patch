@@ -1,0 +1,1163 @@
+From 195d3b45fa3844ffe33fde257845fa2d66218755 Mon Sep 17 00:00:00 2001
+From: Adeyemi Malik <adeyemimalik@hotmail.com>
+Date: Sun, 10 Jun 2018 00:15:35 +0100
+Subject: [PATCH] My submission
+XOV:v2
+
+---
+ .../Controller/AnalyticsControllerTests.cs    | 137 ++++++++++++++++++
+ .../Controller/PanelControllerTests.cs        |  15 +-
+ .../Controller/QueryableExtensions.cs         | 127 ++++++++++++++++
+ CrossSolar.Tests/CrossSolar.Tests.csproj      |   6 +
+ CrossSolar/Controllers/AnalyticsController.cs |  33 ++++-
+ CrossSolar/Controllers/PanelController.cs     |   3 +-
+ CrossSolar/CrossSolar.csproj                  |   1 +
+ CrossSolar/Domain/CrossSolarDbContext.cs      |   1 +
+ CrossSolar/Domain/OneHourElectricity.cs       |   1 +
+ CrossSolar/Domain/Panel.cs                    |  11 +-
+ ...0609185826_CreateCrossSolarDb.Designer.cs} |  11 +-
+ ...s => 20180609185826_CreateCrossSolarDb.cs} |  38 ++---
+ .../CrossSolarDbContextModelSnapshot.cs       |  50 +++----
+ CrossSolar/Models/PanelModel.cs               |   9 +-
+ CrossSolar/appsettings.Development.json       |   2 +-
+ CrossSolar/appsettings.json                   |   2 +-
+ ...alik_MALIK-PC 2018-06-09 21_05_37.coverage | Bin 0 -> 101282 bytes
+ ...alik_MALIK-PC 2018-06-09 21_06_38.coverage | Bin 0 -> 101282 bytes
+ 18 files changed, 377 insertions(+), 70 deletions(-)
+ create mode 100644 CrossSolar.Tests/Controller/AnalyticsControllerTests.cs
+ create mode 100644 CrossSolar.Tests/Controller/QueryableExtensions.cs
+ rename CrossSolar/Migrations/{20180517003158_CreateCrossSolarDb.Designer.cs => 20180609185826_CreateCrossSolarDb.Designer.cs} (86%)
+ rename CrossSolar/Migrations/{20180517003158_CreateCrossSolarDb.cs => 20180609185826_CreateCrossSolarDb.cs} (63%)
+ create mode 100644 TestResults/aa869f9e-b1c5-4e7b-b217-772bdc599191/malik_MALIK-PC 2018-06-09 21_05_37.coverage
+ create mode 100644 TestResults/bf1912ca-85f2-43fc-866c-7b4a9eff644f/malik_MALIK-PC 2018-06-09 21_06_38.coverage
+
+diff --git a/CrossSolar.Tests/Controller/AnalyticsControllerTests.cs b/CrossSolar.Tests/Controller/AnalyticsControllerTests.cs
+new file mode 100644
+index 0000000..becc0ae
+--- /dev/null
++++ b/CrossSolar.Tests/Controller/AnalyticsControllerTests.cs
+@@ -0,0 +1,137 @@
++﻿using CrossSolar.Controllers;
++using CrossSolar.Domain;
++using CrossSolar.Models;
++using CrossSolar.Repository;
++using FizzWare.NBuilder;
++using Microsoft.AspNetCore.Mvc;
++using Moq;
++using System.Collections.Generic;
++using System.Threading.Tasks;
++using Xunit;
++
++namespace CrossSolar.Tests.Controller
++{
++    public class AnalyticsControllerTests
++    {
++        public AnalyticsControllerTests()
++        {
++            _analyticsController = new AnalyticsController(_analyticsRepositoryMock.Object, _panelRepositoryMock.Object);
++        }
++
++        private readonly AnalyticsController _analyticsController;
++
++        private readonly Mock<IPanelRepository> _panelRepositoryMock = new Mock<IPanelRepository>();
++        private readonly Mock<IAnalyticsRepository> _analyticsRepositoryMock = new Mock<IAnalyticsRepository>();
++
++
++        [Fact]
++        public async Task Post_ReturnsCreated()
++        {
++
++
++            // Arrange
++            var panelDbSetMock = Builder<Panel>.CreateListOfSize(3).Build().ToAsyncDbSetMock();
++            _panelRepositoryMock.Setup(m => m.Query()).Returns(panelDbSetMock.Object);
++            var analytic = Builder<OneHourElectricityModel>.CreateNew()
++               .Build();
++
++            // Act
++            var result = await _analyticsController.Post("Serial1", analytic);
++
++            // Assert
++            Assert.NotNull(result);
++
++            var createdResult = result as CreatedResult;
++            Assert.NotNull(createdResult);
++            Assert.Equal(201, createdResult.StatusCode);
++        }
++
++        [Fact]
++        public async Task Post_ReturnsNotFound()
++        {
++
++
++            // Arrange
++            var panelDbSetMock = Builder<Panel>.CreateListOfSize(3).Build().ToAsyncDbSetMock();
++            _panelRepositoryMock.Setup(m => m.Query()).Returns(panelDbSetMock.Object);
++            var analytic = Builder<OneHourElectricityModel>.CreateNew()
++               .Build();
++
++            // Act
++            var result = await _analyticsController.Post("AAAA1111BBBB2222", analytic);
++
++            // Assert
++            Assert.NotNull(result);
++
++            var createdResult = result as NotFoundResult;
++            Assert.NotNull(createdResult);
++        }
++
++        [Fact]
++        public async Task Get_NotFound()
++        {
++            // Arrange
++            var panelDbSetMock = Builder<Panel>.CreateListOfSize(3).Build().ToAsyncDbSetMock();
++            _panelRepositoryMock.Setup(m => m.Query()).Returns(panelDbSetMock.Object);
++
++            // Act
++            var result = await _analyticsController.Get("AAAA1111BBBB2222");
++
++            // Assert
++            Assert.NotNull(result);
++
++            var objectResult = result as NotFoundResult;
++            Assert.NotNull(objectResult);
++        }
++
++        [Fact]
++        public async Task Get_ReturnsItem()
++        {
++            // Arrange
++            var panelDbSetMock = Builder<Panel>.CreateListOfSize(3).Build().ToAsyncDbSetMock();
++            _panelRepositoryMock.Setup(m => m.Query()).Returns(panelDbSetMock.Object);
++            var analyticDbSetMock = Builder<OneHourElectricity>.CreateListOfSize(3)
++                .All().Do(a => a.PanelId = "Serial1")
++                .Build().ToAsyncDbSetMock();
++            _analyticsRepositoryMock.Setup(m => m.Query()).Returns(analyticDbSetMock.Object);
++
++            // Act
++            var result = await _analyticsController.Get("Serial1");
++
++            // Assert
++            Assert.NotNull(result);
++
++            var objectResult = result as OkObjectResult;
++            Assert.NotNull(objectResult);
++
++            var content = objectResult.Value as OneHourElectricityListModel;
++            Assert.NotNull(content);
++
++        }
++
++        [Fact]
++        public async Task DayResults_ReturnsItem()
++        {
++            // Arrange
++            var panelDbSetMock = Builder<Panel>.CreateListOfSize(2).Build().ToAsyncDbSetMock();
++            _panelRepositoryMock.Setup(m => m.Query()).Returns(panelDbSetMock.Object);
++            var analyticDbSetMock = Builder<OneHourElectricity>.CreateListOfSize(3)
++                .All().Do(a => a.PanelId = "Serial1")
++                .Build().ToAsyncDbSetMock();
++            _analyticsRepositoryMock.Setup(m => m.Query()).Returns(analyticDbSetMock.Object);
++
++            // Act
++            var result = await _analyticsController.DayResults("Serial1");
++
++            // Assert
++            Assert.NotNull(result);
++
++            var objectResult = result as OkObjectResult;
++            Assert.NotNull(objectResult);
++
++            var content = objectResult.Value as IEnumerable<OneDayElectricityModel>;
++            Assert.NotNull(content);
++
++        }
++    }
++}
+diff --git a/CrossSolar.Tests/Controller/PanelControllerTests.cs b/CrossSolar.Tests/Controller/PanelControllerTests.cs
+index faa277e..0c51161 100644
+--- a/CrossSolar.Tests/Controller/PanelControllerTests.cs
++++ b/CrossSolar.Tests/Controller/PanelControllerTests.cs
+@@ -2,6 +2,7 @@ using System.Threading.Tasks;
+ using CrossSolar.Controllers;
+ using CrossSolar.Models;
+ using CrossSolar.Repository;
++using FizzWare.NBuilder;
+ using Microsoft.AspNetCore.Mvc;
+ using Moq;
+ using Xunit;
+@@ -20,18 +21,12 @@ namespace CrossSolar.Tests.Controller
+         private readonly Mock<IPanelRepository> _panelRepositoryMock = new Mock<IPanelRepository>();
+ 
+         [Fact]
+-        public async Task Register_ShouldInsertPanel()
++        public async Task Register_ShouldIsnsertPanel()
+         {
+-            var panel = new PanelModel
+-            {
+-                Brand = "Areva",
+-                Latitude = 12.345678,
+-                Longitude = 98.7655432,
+-                Serial = "AAAA1111BBBB2222"
+-            };
+-
++           
+             // Arrange
+-
++            var panel = Builder<PanelModel>.CreateNew()
++              .Build();
+             // Act
+             var result = await _panelController.Register(panel);
+ 
+diff --git a/CrossSolar.Tests/Controller/QueryableExtensions.cs b/CrossSolar.Tests/Controller/QueryableExtensions.cs
+new file mode 100644
+index 0000000..27b97ff
+--- /dev/null
++++ b/CrossSolar.Tests/Controller/QueryableExtensions.cs
+@@ -0,0 +1,127 @@
++﻿using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Query.Internal;
++using Moq;
++using System;
++using System.Collections.Generic;
++using System.Linq;
++using System.Linq.Expressions;
++using System.Text;
++using System.Threading;
++using System.Threading.Tasks;
++
++namespace CrossSolar.Tests.Controller
++{
++    public static class QueryableExtensions
++    {
++        public static Mock<DbSet<T>> ToAsyncDbSetMock<T>(this IEnumerable<T> source)
++            where T : class
++        {
++            var data = source.AsQueryable();
++
++            var mockSet = new Mock<DbSet<T>>();
++
++            mockSet.As<IAsyncEnumerable<T>>()
++                .Setup(m => m.GetEnumerator())
++                .Returns(new TestAsyncEnumerator<T>(data.GetEnumerator()));
++
++            mockSet.As<IQueryable<T>>()
++                .Setup(m => m.Provider)
++                .Returns(new TestAsyncQueryProvider<T>(data.Provider));
++
++            mockSet.As<IQueryable<T>>().Setup(m => m.Expression).Returns(data.Expression);
++            mockSet.As<IQueryable<T>>().Setup(m => m.ElementType).Returns(data.ElementType);
++            mockSet.As<IQueryable<T>>().Setup(m => m.GetEnumerator()).Returns(() => data.GetEnumerator());
++
++            return mockSet;
++        }
++    }
++
++    internal class TestAsyncQueryProvider<TEntity> : IAsyncQueryProvider
++    {
++        private readonly IQueryProvider _inner;
++
++        internal TestAsyncQueryProvider(IQueryProvider inner)
++        {
++            _inner = inner;
++        }
++
++        public IQueryable CreateQuery(Expression expression)
++        {
++            return new TestAsyncEnumerable<TEntity>(expression);
++        }
++
++        public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
++        {
++            return new TestAsyncEnumerable<TElement>(expression);
++        }
++
++        public object Execute(Expression expression)
++        {
++            return _inner.Execute(expression);
++        }
++
++        public TResult Execute<TResult>(Expression expression)
++        {
++            return _inner.Execute<TResult>(expression);
++        }
++
++        public IAsyncEnumerable<TResult> ExecuteAsync<TResult>(Expression expression)
++        {
++            return new TestAsyncEnumerable<TResult>(expression);
++        }
++
++        public Task<TResult> ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken)
++        {
++            return Task.FromResult(Execute<TResult>(expression));
++        }
++    }
++
++    internal class TestAsyncEnumerable<T> : EnumerableQuery<T>, IAsyncEnumerable<T>, IQueryable<T>
++    {
++        public TestAsyncEnumerable(IEnumerable<T> enumerable)
++            : base(enumerable)
++        { }
++
++        public TestAsyncEnumerable(Expression expression)
++            : base(expression)
++        { }
++
++        public IAsyncEnumerator<T> GetEnumerator()
++        {
++            return new TestAsyncEnumerator<T>(this.AsEnumerable().GetEnumerator());
++        }
++
++        IQueryProvider IQueryable.Provider
++        {
++            get { return new TestAsyncQueryProvider<T>(this); }
++        }
++    }
++
++    internal class TestAsyncEnumerator<T> : IAsyncEnumerator<T>
++    {
++        private readonly IEnumerator<T> _inner;
++
++        public TestAsyncEnumerator(IEnumerator<T> inner)
++        {
++            _inner = inner;
++        }
++
++        public void Dispose()
++        {
++            _inner.Dispose();
++        }
++
++        public T Current
++        {
++            get
++            {
++                return _inner.Current;
++            }
++        }
++
++        public Task<bool> MoveNext(CancellationToken cancellationToken)
++        {
++            return Task.FromResult(_inner.MoveNext());
++        }
++    }
++}
+diff --git a/CrossSolar.Tests/CrossSolar.Tests.csproj b/CrossSolar.Tests/CrossSolar.Tests.csproj
+index 3801997..1eabc12 100644
+--- a/CrossSolar.Tests/CrossSolar.Tests.csproj
++++ b/CrossSolar.Tests/CrossSolar.Tests.csproj
+@@ -6,10 +6,16 @@
+     <IsPackable>false</IsPackable>
+   </PropertyGroup>
+ 
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
++    <DebugType>full</DebugType>
++    <DebugSymbols>true</DebugSymbols>
++  </PropertyGroup>
++
+   <ItemGroup>
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.6.0" />
+ 	<DotNetCliToolReference Include="MiniCover" Version="2.0.0-ci-20180304114938" />
+     <PackageReference Include="moq" Version="4.8.2" />
++    <PackageReference Include="NBuilder" Version="5.1.0" />
+     <PackageReference Include="xunit" Version="2.3.1" />
+     <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
+     <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
+diff --git a/CrossSolar/Controllers/AnalyticsController.cs b/CrossSolar/Controllers/AnalyticsController.cs
+index d2217d7..8103038 100644
+--- a/CrossSolar/Controllers/AnalyticsController.cs
++++ b/CrossSolar/Controllers/AnalyticsController.cs
+@@ -24,13 +24,14 @@ namespace CrossSolar.Controllers
+         }
+ 
+         // GET panel/XXXX1111YYYY2222/analytics
+-        [HttpGet("{banelId}/[controller]")]
++        [HttpGet("{panelId}/[controller]")]
+         public async Task<IActionResult> Get([FromRoute] string panelId)
+         {
+             var panel = await _panelRepository.Query()
+                 .FirstOrDefaultAsync(x => x.Serial.Equals(panelId, StringComparison.CurrentCultureIgnoreCase));
+ 
+-            if (panel == null) return NotFound();
++            if (panel == null)
++                return NotFound();
+ 
+             var analytics = await _analyticsRepository.Query()
+                 .Where(x => x.PanelId.Equals(panelId, StringComparison.CurrentCultureIgnoreCase)).ToListAsync();
+@@ -52,7 +53,24 @@ namespace CrossSolar.Controllers
+         [HttpGet("{panelId}/[controller]/day")]
+         public async Task<IActionResult> DayResults([FromRoute] string panelId)
+         {
+-            var result = new List<OneDayElectricityModel>();
++            var panel = await _panelRepository.Query()
++               .FirstOrDefaultAsync(x => x.Serial.Equals(panelId, StringComparison.CurrentCultureIgnoreCase));
++
++            if (panel == null)
++                return NotFound();
++
++            var data = await _analyticsRepository.Query()
++                .Where(x => x.PanelId.Equals(panelId, StringComparison.CurrentCultureIgnoreCase))
++                .GroupBy(x => x.DateTime.Date).ToListAsync();
++
++                var result = data.Select(x => new OneDayElectricityModel
++                {
++                    Sum = x.Sum( c => c.KiloWatt),
++                    Average = x.Average(c => c.KiloWatt),
++                    Maximum = x.Max(c => c.KiloWatt),
++                    Minimum = x.Min(c => c.KiloWatt),
++                    DateTime = x.Key
++                });
+ 
+             return Ok(result);
+         }
+@@ -61,7 +79,14 @@ namespace CrossSolar.Controllers
+         [HttpPost("{panelId}/[controller]")]
+         public async Task<IActionResult> Post([FromRoute] string panelId, [FromBody] OneHourElectricityModel value)
+         {
+-            if (!ModelState.IsValid) return BadRequest(ModelState);
++            if (!ModelState.IsValid)
++                return BadRequest(ModelState);
++
++            var panel = await _panelRepository.Query()
++                .FirstOrDefaultAsync(x => x.Serial.Equals(panelId, StringComparison.CurrentCultureIgnoreCase));
++
++            if (panel == null)
++                return NotFound();
+ 
+             var oneHourElectricityContent = new OneHourElectricity
+             {
+diff --git a/CrossSolar/Controllers/PanelController.cs b/CrossSolar/Controllers/PanelController.cs
+index 7b72543..f215668 100644
+--- a/CrossSolar/Controllers/PanelController.cs
++++ b/CrossSolar/Controllers/PanelController.cs
+@@ -20,7 +20,8 @@ namespace CrossSolar.Controllers
+         [HttpPost]
+         public async Task<IActionResult> Register([FromBody] PanelModel value)
+         {
+-            if (!ModelState.IsValid) return BadRequest(ModelState);
++            if (!ModelState.IsValid)
++                return BadRequest(ModelState);
+ 
+             var panel = new Panel
+             {
+diff --git a/CrossSolar/CrossSolar.csproj b/CrossSolar/CrossSolar.csproj
+index 9a21b19..1168a1b 100644
+--- a/CrossSolar/CrossSolar.csproj
++++ b/CrossSolar/CrossSolar.csproj
+@@ -5,6 +5,7 @@
+   </PropertyGroup>
+ 
+   <ItemGroup>
++    <Folder Include="Migrations\" />
+     <Folder Include="wwwroot\" />
+   </ItemGroup>
+ 
+diff --git a/CrossSolar/Domain/CrossSolarDbContext.cs b/CrossSolar/Domain/CrossSolarDbContext.cs
+index 98fbb4b..6928126 100644
+--- a/CrossSolar/Domain/CrossSolarDbContext.cs
++++ b/CrossSolar/Domain/CrossSolarDbContext.cs
+@@ -22,6 +22,7 @@ namespace CrossSolar.Domain
+ 
+         protected override void OnModelCreating(ModelBuilder modelBuilder)
+         {
++
+         }
+     }
+ }
+\ No newline at end of file
+diff --git a/CrossSolar/Domain/OneHourElectricity.cs b/CrossSolar/Domain/OneHourElectricity.cs
+index 8bcdf82..09a5377 100644
+--- a/CrossSolar/Domain/OneHourElectricity.cs
++++ b/CrossSolar/Domain/OneHourElectricity.cs
+@@ -1,4 +1,5 @@
+ ﻿using System;
++using System.ComponentModel.DataAnnotations;
+ 
+ namespace CrossSolar.Domain
+ {
+diff --git a/CrossSolar/Domain/Panel.cs b/CrossSolar/Domain/Panel.cs
+index 1deec97..a4b882f 100644
+--- a/CrossSolar/Domain/Panel.cs
++++ b/CrossSolar/Domain/Panel.cs
+@@ -1,4 +1,5 @@
+-﻿using System.ComponentModel.DataAnnotations;
++﻿using System.Collections.Generic;
++using System.ComponentModel.DataAnnotations;
+ 
+ namespace CrossSolar.Domain
+ {
+@@ -6,12 +7,16 @@ namespace CrossSolar.Domain
+     {
+         public int Id { get; set; }
+ 
+-        [Required] public double Latitude { get; set; }
++        [Required]
++        public double Latitude { get; set; }
+ 
+         public double Longitude { get; set; }
+ 
+-        [Required] public string Serial { get; set; }
++        [Required]
++        [StringLength(maximumLength: 16, MinimumLength = 16)]
++        public string Serial { get; set; }
+ 
+         public string Brand { get; set; }
++
+     }
+ }
+\ No newline at end of file
+diff --git a/CrossSolar/Migrations/20180517003158_CreateCrossSolarDb.Designer.cs b/CrossSolar/Migrations/20180609185826_CreateCrossSolarDb.Designer.cs
+similarity index 86%
+rename from CrossSolar/Migrations/20180517003158_CreateCrossSolarDb.Designer.cs
+rename to CrossSolar/Migrations/20180609185826_CreateCrossSolarDb.Designer.cs
+index e1d6843..112e44c 100644
+--- a/CrossSolar/Migrations/20180517003158_CreateCrossSolarDb.Designer.cs
++++ b/CrossSolar/Migrations/20180609185826_CreateCrossSolarDb.Designer.cs
+@@ -1,24 +1,23 @@
+ ﻿// <auto-generated />
++using System;
+ using CrossSolar.Domain;
+ using Microsoft.EntityFrameworkCore;
+ using Microsoft.EntityFrameworkCore.Infrastructure;
+ using Microsoft.EntityFrameworkCore.Metadata;
+ using Microsoft.EntityFrameworkCore.Migrations;
+-using Microsoft.EntityFrameworkCore.Storage;
+-using Microsoft.EntityFrameworkCore.Storage.Internal;
+-using System;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+ 
+ namespace CrossSolar.Migrations
+ {
+     [DbContext(typeof(CrossSolarDbContext))]
+-    [Migration("20180517003158_CreateCrossSolarDb")]
++    [Migration("20180609185826_CreateCrossSolarDb")]
+     partial class CreateCrossSolarDb
+     {
+         protected override void BuildTargetModel(ModelBuilder modelBuilder)
+         {
+ #pragma warning disable 612, 618
+             modelBuilder
+-                .HasAnnotation("ProductVersion", "2.0.3-rtm-10026")
++                .HasAnnotation("ProductVersion", "2.1.0-rc1-32029")
+                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+ 
+             modelBuilder.Entity("CrossSolar.Domain.OneHourElectricity", b =>
+@@ -50,7 +49,7 @@ namespace CrossSolar.Migrations
+ 
+                     b.Property<string>("Serial")
+                         .IsRequired()
+-                        .HasMaxLength(255);
++                        .HasMaxLength(16);
+ 
+                     b.HasKey("Id");
+ 
+diff --git a/CrossSolar/Migrations/20180517003158_CreateCrossSolarDb.cs b/CrossSolar/Migrations/20180609185826_CreateCrossSolarDb.cs
+similarity index 63%
+rename from CrossSolar/Migrations/20180517003158_CreateCrossSolarDb.cs
+rename to CrossSolar/Migrations/20180609185826_CreateCrossSolarDb.cs
+index 9f2a224..871981e 100644
+--- a/CrossSolar/Migrations/20180517003158_CreateCrossSolarDb.cs
++++ b/CrossSolar/Migrations/20180609185826_CreateCrossSolarDb.cs
+@@ -9,40 +9,44 @@ namespace CrossSolar.Migrations
+         protected override void Up(MigrationBuilder migrationBuilder)
+         {
+             migrationBuilder.CreateTable(
+-                "OneHourElectricitys",
+-                table => new
++                name: "OneHourElectricitys",
++                columns: table => new
+                 {
+                     Id = table.Column<int>(nullable: false)
+-                        .Annotation("SqlServer:ValueGenerationStrategy",
+-                            SqlServerValueGenerationStrategy.IdentityColumn),
+-                    DateTime = table.Column<DateTime>(nullable: false),
++                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
++                    PanelId = table.Column<string>(nullable: true),
+                     KiloWatt = table.Column<long>(nullable: false),
+-                    PanelId = table.Column<string>(nullable: true)
++                    DateTime = table.Column<DateTime>(nullable: false)
+                 },
+-                constraints: table => { table.PrimaryKey("PK_OneHourElectricitys", x => x.Id); });
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_OneHourElectricitys", x => x.Id);
++                });
+ 
+             migrationBuilder.CreateTable(
+-                "Panels",
+-                table => new
++                name: "Panels",
++                columns: table => new
+                 {
+                     Id = table.Column<int>(nullable: false)
+-                        .Annotation("SqlServer:ValueGenerationStrategy",
+-                            SqlServerValueGenerationStrategy.IdentityColumn),
+-                    Brand = table.Column<string>(nullable: true),
++                        .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                     Latitude = table.Column<double>(nullable: false),
+                     Longitude = table.Column<double>(nullable: false),
+-                    Serial = table.Column<string>(maxLength: 255, nullable: false)
++                    Serial = table.Column<string>(maxLength: 16, nullable: false),
++                    Brand = table.Column<string>(nullable: true)
+                 },
+-                constraints: table => { table.PrimaryKey("PK_Panels", x => x.Id); });
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_Panels", x => x.Id);
++                });
+         }
+ 
+         protected override void Down(MigrationBuilder migrationBuilder)
+         {
+             migrationBuilder.DropTable(
+-                "OneHourElectricitys");
++                name: "OneHourElectricitys");
+ 
+             migrationBuilder.DropTable(
+-                "Panels");
++                name: "Panels");
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/CrossSolar/Migrations/CrossSolarDbContextModelSnapshot.cs b/CrossSolar/Migrations/CrossSolarDbContextModelSnapshot.cs
+index 7c14722..2b5bcb2 100644
+--- a/CrossSolar/Migrations/CrossSolarDbContextModelSnapshot.cs
++++ b/CrossSolar/Migrations/CrossSolarDbContextModelSnapshot.cs
+@@ -1,59 +1,59 @@
+ ﻿// <auto-generated />
+-
+ using System;
+ using CrossSolar.Domain;
+ using Microsoft.EntityFrameworkCore;
+ using Microsoft.EntityFrameworkCore.Infrastructure;
+ using Microsoft.EntityFrameworkCore.Metadata;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+ 
+ namespace CrossSolar.Migrations
+ {
+     [DbContext(typeof(CrossSolarDbContext))]
+-    internal class CrossSolarDbContextModelSnapshot : ModelSnapshot
++    partial class CrossSolarDbContextModelSnapshot : ModelSnapshot
+     {
+         protected override void BuildModel(ModelBuilder modelBuilder)
+         {
+ #pragma warning disable 612, 618
+             modelBuilder
+-                .HasAnnotation("ProductVersion", "2.0.3-rtm-10026")
++                .HasAnnotation("ProductVersion", "2.1.0-rc1-32029")
+                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+ 
+             modelBuilder.Entity("CrossSolar.Domain.OneHourElectricity", b =>
+-            {
+-                b.Property<int>("Id")
+-                    .ValueGeneratedOnAdd();
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd();
+ 
+-                b.Property<DateTime>("DateTime");
++                    b.Property<DateTime>("DateTime");
+ 
+-                b.Property<long>("KiloWatt");
++                    b.Property<long>("KiloWatt");
+ 
+-                b.Property<string>("PanelId");
++                    b.Property<string>("PanelId");
+ 
+-                b.HasKey("Id");
++                    b.HasKey("Id");
+ 
+-                b.ToTable("OneHourElectricitys");
+-            });
++                    b.ToTable("OneHourElectricitys");
++                });
+ 
+             modelBuilder.Entity("CrossSolar.Domain.Panel", b =>
+-            {
+-                b.Property<int>("Id")
+-                    .ValueGeneratedOnAdd();
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd();
+ 
+-                b.Property<string>("Brand");
++                    b.Property<string>("Brand");
+ 
+-                b.Property<double>("Latitude");
++                    b.Property<double>("Latitude");
+ 
+-                b.Property<double>("Longitude");
++                    b.Property<double>("Longitude");
+ 
+-                b.Property<string>("Serial")
+-                    .IsRequired()
+-                    .HasMaxLength(255);
++                    b.Property<string>("Serial")
++                        .IsRequired()
++                        .HasMaxLength(16);
+ 
+-                b.HasKey("Id");
++                    b.HasKey("Id");
+ 
+-                b.ToTable("Panels");
+-            });
++                    b.ToTable("Panels");
++                });
+ #pragma warning restore 612, 618
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/CrossSolar/Models/PanelModel.cs b/CrossSolar/Models/PanelModel.cs
+index 5e31cb5..1ffb094 100644
+--- a/CrossSolar/Models/PanelModel.cs
++++ b/CrossSolar/Models/PanelModel.cs
+@@ -11,9 +11,14 @@ namespace CrossSolar.Models
+         [RegularExpression(@"^\d+(\.\d{6})$")]
+         public double Latitude { get; set; }
+ 
+-        [Range(-180, 180)] public double Longitude { get; set; }
++        [Required]
++        [Range(-180, 180)]
++        [RegularExpression(@"^\d+(\.\d{6})$")]
++        public double Longitude { get; set; }
+ 
+-        [Required] public string Serial { get; set; }
++        [Required]
++        [StringLength(maximumLength: 16, MinimumLength = 16)]
++        public string Serial { get; set; }
+ 
+         public string Brand { get; set; }
+     }
+diff --git a/CrossSolar/appsettings.Development.json b/CrossSolar/appsettings.Development.json
+index 7b346f0..177bb77 100644
+--- a/CrossSolar/appsettings.Development.json
++++ b/CrossSolar/appsettings.Development.json
+@@ -1,6 +1,6 @@
+ ﻿{
+   "ConnectionStrings": {
+-    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=CrossSolarDb;Trusted_Connection=True;"
++    "DefaultConnection": "Server=.;Database=CrossSolarDb;Trusted_Connection=True;"
+   },
+   "Logging": {
+     "IncludeScopes": false,
+diff --git a/CrossSolar/appsettings.json b/CrossSolar/appsettings.json
+index 43e8e63..722519a 100644
+--- a/CrossSolar/appsettings.json
++++ b/CrossSolar/appsettings.json
+@@ -1,6 +1,6 @@
+ ﻿{
+   "ConnectionStrings": {
+-    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=CrossSolarDb;Trusted_Connection=True;"
++    "DefaultConnection": "Server=.;Database=CrossSolarDb;Trusted_Connection=True;"
+   },
+   "Logging": {
+     "IncludeScopes": false,
+diff --git a/TestResults/aa869f9e-b1c5-4e7b-b217-772bdc599191/malik_MALIK-PC 2018-06-09 21_05_37.coverage b/TestResults/aa869f9e-b1c5-4e7b-b217-772bdc599191/malik_MALIK-PC 2018-06-09 21_05_37.coverage
+new file mode 100644
+index 0000000000000000000000000000000000000000..7635ba0ff2ade58aa43888039a679be42e1cacd3
+GIT binary patch
+literal 101282
+zcmeI5Ym8-CRe;aPh@$dJh@vPoi69_zGd(XJL6YvO>h5a$QPWl3Jp%<pb#+yD_0(&s
+zs$V0*AR-22#uy$VMvVd?BN9oJnBXsenMfqY#2^0hFA4ICU;e@MoppEZv)9?@+*7ye
+z+_S6acIDK)eeSKZ*Is+Q*V=2(Oq}}3ec8*hEc?l+iJ4El`usayas9c;PyhQXZ@=aG
+z_rD{zgMZ6E!+&3wee==ROn&~O|9$$4zxKm-{^(!7^q=?1-TS}%^pAf0weL;7IQ9A;
+z{P2z6UHoV^k-ayY&n{-$*;2M8zvr{HY$03CR<ft%{baV0-OkqK{~L1mYX146d~ZYE
+zZD$Y2wIQD^$ejn|(~WFLzPlv9=d)(tn%I5T?Cz6#*_=FMTb=?mR|Jyv9Fiq@e>1x#
+z?{$nt`HL<2=0dh9KM!TS>_Pc#&=Y$C=c@c<&t=*BUiSQ#?$5x>CzHp+hRpuPf#P8%
+z$Ne?=y&!AelNH+*Oz`i%Z01OoUxJ&L>zyonRd!as$!feUU!AS|{k80a*@v>X3%wna
+z)!C6XIVo$x3h~?>dA*v2BW2l7@yHzS(DeJ{;`O)W;vehb{?F_C<+?xro2}$mX+q||
+zF0+P1pfa#9FY{l>F|sP~mp}K^9<IUCku2l7U)BJe{Ip!Z*!Wp*%h#mo$Zu%CH!;{>
+zp05_``8v5?(SKc%SMG7WQZDZE`c}DEQSQG=F7EUCb8@-+ua@_Gm)FPTlG*3qxA(yY
+z&v}hpJcn1Fb6@s9N3#49G5B(b_gC{z&I;yl$$FfV>yE4t_<5``HhV&)7vwLm3C$y!
+zSl6er+3dPJ^`@-z)ofbsugk?JJB8=IUp{+Eejd(-#qn$Nc`?`5%f(!IWv*P@|7E$r
+z*_-47Pd_hL?EWuQ+~;p&-)C)N_Zfrxzb+Sl%j+?@ScBO8*H+yBrT+cjkXN3=E6-wn
+zJm>9lai7=s$mQ<8qko^*-;|5_^L^g)eO~$gugDd<|AvbDP)h9k;FbIDlneax3hvRy
+zU;UfQ-#-3@6H}l1%HRISW6%EV|H|#)-{(IG?{dAbFTF13auaQNTj*t8r0UA9w%o{;
+zg?f5IrBk8>=d%++O-Sb@`7YY-X`$Ii<o+%BjlSy%T|Fq*QJF8Adt08QT5(C9x~uE@
+z5M1m-5X$2tGRjIWtAHld;@d*uXm_M|9i+$xzSR>tKpW5Z^>HtIm%N|N?h0gZ4SI&r
+zS7ZjN9eTM;<ZsW&-76)S-?WRhX~D{5c0Ri-&kLXVu#AT0zmPpCPoI;|XG+g`W5si}
+z3$W>Pu!0r@o^_eK#o(JOo-!*V&&tSCvYHl}<ARe}`NTf!t(DL6*wSY`EzoTBHAqij
+z1H*2e?NgWfPpz`(dh#5sD7Dfy<!OsTRSWqY)_+Y_!P#z(8d*8kZ&Rp*Ra?$io3(VG
+zAP4!zyinq!a{n>8u*R?>ugI%fY<vSvcvXIH$?v1`tw-fk`xHB;JN-FT)9n$F=XbJq
+z%eZfs=ao6?NOnme*_N4O+a8hi*pc^F<=%#T{~>|(Xilk90v*t7$y}jQ<oSGVkHUpV
+z<lTn+tjc|C<Gb>0?t`%-0^^1}ajE|fT?6le>G1FPi>rM;hGT(ZLB@Y1=jXn4+UMAN
+zaW&5lT+LBPp$oG9to4el268LJ`&36TE(&dJiJiY9kXe|1zYo)BI9vUVC86vc!H`n+
+zs!;tf{9Wcp@8iwLj6<2?bjihhb&w#e5)x>P5in7QktaK%+fc(#3Y18`b)g$%KJt;(
+zo69BQqWphdKDDd)*_Q}?TZ%s>8WJp_E#NkE5}w2uKiHIOVm&p(&l5?|zSS#JxwnZm
+zxm~%kmy>|JifboD_G;wKQe+zb#GKga_z%P<on)Dl|80w1Tjrw2lfX4PPUAy$9RI>S
+zB@v4jc+vi@vjxrz<=v3A1xrM5u&-B3l5vcuW_TJD<xbHz+^g;AauZI=;?WVc!vnSQ
+zYmAT3>-o$`<&E|FN99|riA{m;hgFK_q4w5bZ)1#|I?v<N_XzC_qovU1P!)E&l`&(y
+z#PKqhgdIjUh)9dZq>1Dq4~X5BEyuMXASNG*Z8|SrfJW{$61v#GALg$4?6yFl{-2A!
+z-Vj*0gM1|7&vjJ(H#oNXuzZUdmY;dL|4d7*%R|iZ;4=i)hnkf+5RKKkgl7v<yV=Uk
+zCNZm%vSLKlVzUVK@cAU*jrmm}oTrk2b6RpjmX6c#@|<*`wuLMUvZgFoK9mF&EzeDh
+z#L-O1hU7w&18)frF3K#*bNE0KbBIyw`COWB3Gb<_C6j5XC5_0Dqn2|5DLIJ?Ii`sd
+zP*<Z?s)f8Nt67Z4Y7UWH^Fw(Z0+muBA6MmA%ehhVU7G?6(X7pVJZDp$K#nc`oT^!s
+z;W;N+<70i8n$D_>8?tcVN4eBKrwW>K&UaF@?X18vBh?`GDO7(@X?IyZtIuQejPl=;
+zUyT2~%{))b_@@LfGrN#X%Ky$tMp5e!s^??#&bRZGCiA>inok;1t14#cG7U?DODc4>
+za=B&KB<*a8X1i71mL={}Nl0Avd^QEg*sf@dVwA3lRb3@}%3Mlr^h)1nf2Kr_>1v>&
+zR+<q^A<-=*reUw>dilzni@DWpVeN`*Vv#_tr9#6UCQo2ac!e6oo>T>`3q=#xcA1M%
+zGtVT!<ya!iLbV!)k6R*X<buMQoSxWFbyXghlEChneC?5F<O(;1=diG=vxSGxM?WDH
+zP9~RVtNIjWeU`>rSb8}p^n)!<^g(MFLjF9R7zKsUeJ}~=;?ko@Ui?ZD@YmZob5aGk
+zDHOuD*89Gu(zw-|X;{p_8OuD+=ChzS$Hk}8^^_-t9~Z=9b2_t$otcJ()hth&2HjWj
+ztwzav;-j81dwt@TLCR973FRy#A%zC523Ev1sf5`PzM%GB-&+~<;Uwmw5nH$Gpy=rx
+zCM&*f7NH(aBiChZn=_&bsF}jLv2^n1eLAVCH9ma%Lht0BfYw!S<?o4DFms~XZf5{>
+zm~LMHIPp7L@zSu&d$|S6_rM*|(73iAV{jv<sxb!r-sDl!U>Y&PxaM+pa}z({b1xxj
+zq`4lgw7DxBgp}IJV?;<F&0%RBK&WHJIC2ttj3cz#uyo|C-73vLs7ACX;}#@dAKTgB
+zcZW8sV__#@ljmA1=3bgh8u76wBpOEc0-5e?$ID_DVOPcM$TYleo7Zr&2qkD55o`yW
+zzG7!D3NI6bB)euQJPnwO87>!-nG>4O$f<=n9jk<lzsn61k%p>^_vm**#RGeI%RbU(
+z627$c>ZWr#0p57sPWXMk?RInfT4=jsY1Geo&KSfMX~@bdspIoKq5Mf>U$n-t;R5n~
+zmJ-s)M;;Te8}1|Gj^5E+YKYB09fCXeR;^1M)OJc>*BMn!MVq}Ra`2XXvnP^dkUd1j
+zF1CMl&xD8MIoLz7Z1}N!^mF;>U<Z$(C*Rc3o9?4@+&-)Y$gT>kKBXULmCxrLOMt$a
+z%?BnXf+zVIg)4p7;7ubM2sYP*R^ydBA%_33BVK~b;fCTq9qbEo;~L+l4+k{$NS`a}
+zd53-@&{dpwVxyrSi=$b2_!kLd26<DKMv5;m(Toot+b6!_GAX35kN2@Sti*{)V$}**
+z&BaOzY$8`n>u3jDJShDOsS!LXuggMRSbcQ6sHdkoSsagRoe##h)HKF}R;ccG&s4Ea
+z7#zpDQN-_ik3cmR-HbeS45A1pVZxkNRh4S&eqFul7%%ZU-oNTd3YVp8PcpEs=ZW?>
+z8Eo^>yKHzl6PK^23=~amzpm<;)MD1G+IpT>qd%CHkAIfbI#bKW9*C}1*p1(GZNEG+
+zEz3T)Yx090rO!`2hDND>$$1wc8{;l!3&(AjVR84D9dT{Up10lu5@t!b7(0=7RAb+j
+zt5_q4AML%2{aVfJ?3s*=i9hD+@)*-fzgr#Qv8?5M{-zDx75WCxCo^m081bf+e#BIx
+z!gu?$!LIB!uyHIprlpNP>I6$wK9=v<Lwo_c_7pR?E9fv@l^?Nchs}38!BETthmM-b
+zrqGsD>xk~sH|6g=M$1%({PNWTb@+^1j~ZXKk(Y8TB(yST1v2`&Dtwkg|0E&&Q$74_
+zj-#HyTihX1hgEBx?j5fe3gd=(7>ljXCxop9!O)KQHJX78qj4Tz#MKVki_sGW;v-v(
+zed~~5Y>+kFo*t=QMY?v!GZPleDRD8i&gy|J3vH6UB$rDD*HdL#HtwH`PwkF-!i;ON
+z_0>Z|lW2?$=}@74c0K+^&(+w$9ukYuH0mAbhCx+^*1b@rHzBf*vr*_IU}5emM^Lug
+zkv(-%z}XFc{oCN5da2I(Yu+;S1HOJ}cxhR%%&z?_eM<J&96dLkFtAwKOeu0&Pn+yj
+zP}=PhpXWtWDijuze|>1^^IA@q*F<8`mrSi#&5MrKemhx!!(#IrhX$KB^6qL^a!UZY
+zwbdz3Pv_7aFF<24`<+9B*>YAFxr&ZbkF87EEk{j{1+ZDH|NWuCIvH|2y%mXvg6nnp
+z(Y_B|;+woVP)!R|SO^{}i|NB-bF)*Ex@oPP?h?Cm0VEcqDfxWP2EayKkr<AzSse}j
+z%HvvWrD##bpe8b_5x!ysyG;u<1_jYt2ZhDtKPDwJpB1g+W2&4BwUzH2b^Q>#i`6>F
+zG-_M!)VP-@ZCX(@H#3cwTbz^2Lw4#3rmm{X%Yk-$R|iuZ+r-GrFj>m}<Af+19q-~T
+zqmv2fa5rk540tXvOz8>9&Sz?a!oUopSei-6zohD&t~b=nEB9?met<Zb<4Jl(Y6WGx
+zxT=D~@u7pmV)L6x(N)zf=ooxAuS>w%(Y}1zW2Idw#~Ir3_5JM}BI*|`L>9v-Ww7Ye
+zKyGqVpr#)|v5#H5n4Ij7%w8Znvc*_Ry0;EvU1hN9aoIG3b(pa1Yz=Z&Xa(Jg*d@gt
+z6Q4`%V6y!lCQHjNCL~|$X*pKI(j|uDwRd4I<oTqq8>_Bw8-uYiEe)m=Lyqq?=uVQx
+z@z+#_rW8Z2!mO)S*%3=-IhUR6Mt7&E<MrUpcSEOBxtB=n?{4ITcl7|udv8D0=lb?{
+zNnt0E%LYPs8jfOWl(pKre>#N1^7t4hWl!-B64DM~RIFWY3*%gtQocPh?uk{D;}^Sg
+zEM1q(g^HT1(Q{g?9vu(bLflk8jB%~K-RVn!9xCoYJ!o8iZDe$f&ZJuid#~{UeC}nC
+z9WzR;f%dF|vMK$JaT?O>LEtnczdO`QJ>gHy=J0zEEw@#lYqgil<0wo`DYu)rX3U4~
+z<&uILBaOPzWfje+vF&=@2aX5tv(m_NyqiPZi*_A{H5wN})D*+1?LpOkY;EH+zE6Zo
+zXdS;P_EO5{xcc$7tx{K|9>#E1hp^HQ{-jN$jICs@iv2&4Ju00L-Xn0s#kvp9?FNaR
+z37AHo8|{YFlXKUo$fdhN^+}8=<z?yOenspo@JxjSukG(`P%K?6jcUEAFAhPyZFSdj
+zeB2ZKlr8R2ad%wfggl>8C6&Y4hU69DXCgl6=TYsRap!XSaV?E?)paViZ$fdSyMKw=
+zwM$i0ITquW7Bk(@QH;CD_*+=<6Av=B8t1Gsj_^_#*J3NB+S@X=itF4}oVtw5;Ud(Z
+zXeAcmxo!}C+KMxH2u=uv>FK;KlTbx<V_dB6o;cf$wa`>vx$OEu>b|Bj%Vp7H_VZ^F
+zvaxQ6T|iuIGmrW$O0}2Qfcxv{5ce!k_s5&r9nVVjlx%hS9nqr_J3U^L-bSS${di)d
+zT1=%>kzR!<`Y^Ds2QP=7QJ%U+i@6H{6c&^2OdpLOY31Wuc0_Wx_-HCWif0DR3l+EJ
+z^^h06DnE>STWC*f)7Nt<<Q#9#G-?-%?18cn(5(hOa1dAwek>uGrd^pmj@sD!;Ce5I
+zeqcBHFy4#C_om*I^+adVb5||ttpWwLi5+U`SNf;l`mrtTq~s4etd)J8Ht|$tYo;XO
+zLpk16HpR;Ert#^NY9~TWdO6jGMzr_}<rSUS-z&0UFM99bW7SZ<?~tce6jZ-(pT2$M
+zq|t(SYgTr2BXQ#%2=Nlzad1uM!2M#Uw84@Df48bXciaP+jEsGDcWjHbbS3Wgh%}Q*
+z+;WXoN<CeiE^>9wbSYeyHD$*G_B7lvDtx&beeA$843@q=l8jubJ_(`OOj4wW;<-N5
+zA!+8_dGcPL43;x>nfAE<?(E(ZLVa73BZd+^49>f^^pKW+rKhIEv3MuXdv}RLcN$Wt
+zsZ%`lrpo6Z4ff6m1vZJ2v|pJJo=N~W=($B$EQ<mqmF&bm&^DU=)e{Jsoo(WHG(34=
+zZg&(S`gRn}_F67Xk%p+%A<j|V>90*GcBw!5pniWTMQoi_K)ynIosNdzF6@qH>FW1}
+z(DrRb&th0<$FFkOx7cv`p}qK2`^Sb#0J>$`I31s?$q&||Qp&?3hXz;S;e)_?L<8+<
+zXcM_qTaun>cC=7yb>nB$;bL1d9K=*zpXD}jF(Fk+ZZu0JDea>6Jkt|D6$+vbd=z_9
+zi!$Ym8QEg2n+Q%dEqSbY`MW<!Q_WRHJcS&VQiQOqnYyUlavn+%XYrUxh{?NsEjH{f
+zywD1SZelSlcHgb#`7kPbwNoRKc5kOq#ce|9CpPAEX-vyoFXg$XB#Fx$L|&frC`J|M
+z@mxcOUPrdnk|M^4iE(lykyc``VLzWXeTcby<Ws@O7GtA3p$U(eDh~BH2W4s6s;eqj
+z>k`cmA#0ks8RKqv+;tOoi)TmJU#PVd)DRFQSrd*WhIB=KY<0+B|HSFQn12%2_pX|w
+z7)d#4Ah4X9QZ*8BcXCN?R~vp=`<mfge^j?`&5dd?)qb3f${6d3#%muoB%%aG9h7Ar
+zkA<J_k76;=O-?e73G$}Yy=$(BJwZh&+%A4Dn6a$}2<`8bs=4d2Hb|?swUcxZKAURP
+zlyX{SOzY|8df)A@A2prEV6a@C#xA(&?7Vo7cz$F$L#$bdyNRGw%ca`_FZ<ux?$!g}
+z_^~WjQu1b;X2*Zw#9`fGs*wfH18sOSPP^;Kr}`tSrDQRdQpeH|V=F>W$P6llM%zC)
+z#NV{^v!9hK28YFFy7WhvQY>|(O0j-ve^Ji3EfwOAZlr!>i?NjSS4e*$#(H9H9qf*|
+zVQ`0TU<EA}|0SWUT|E||K(Z2Q$Ff7cD+{ciO6MYQHnqu8isRR>hSy47BaL1nI1N><
+z;QNO|P1o!+qC3E?mVMW~Q}UTz$gCtu$*zQUx8-LP-L%1>AIoCp`K0KOJc8qE7s2uT
+z+m1!an2yfem}z6lRn{)<_Bbl$UD}ayeoPmiEX%ZRDr`6(3SH|YKJTb7AqE-dSN4Y)
+z*U81n^j=0b#gAiYrkgX-<9@8x^Rb84cc1ZmwLiSXtv#*ntM7O7v5sVq>mlBg6K6T$
+zfRhbwitn&fs5}~s6S7i|R8$`MKIOd(FX3)>X?F}uC*9~JjlsY-i!yVn8}R~Tr;$^8
+z^lq7_>il{69{h&igSAW5|Cao&!v>KJzE1?mk5zvH`MDuz<KXxFlzBdk26xj5rODdi
+zdpJ6umkK$m<a*h=MzD@W+7GeSl|*!SDD%6kbXGawCF1_@RK!4;`&BaPeJcx|OoHm+
+z*Ja_<;yEQfsj!6a(RX^9iG_V83D}Xdt0K*pvN`$9UgC00;dlCw4qHPN%kU9H!Q$Xm
+zJ6gHQM6F(Ea>A{CGhWL|4fwXqh}q4`I^2}e@E$a(&d5YiiX->(x=t#&>`I;NXr(xv
+z9Q<s_9Pl3x3tU@6;A{W2(w@(jWUbdka#MZxZn>J-Ce$Xxst(*9xt{EJ=ec$jZgo6c
+z_(&zp!O!@7=4T)3rr+&&*4x=LIaiPoh(%=gS83vBJsXS@;^6TiaB%Q8mxmRJ=Jo_w
+zD(z;MP_es8FV`+ms^6n`CAV{l124+`VfMbF1Bi3PIhS3v&L*7^dMS?HG=|&0*A><n
+zyF8c23R(*Ll<%=COzl%<KA6fKel+K&^;x~$9F`pe-&Du2^mDmS>%-ar*x>9|ajVRp
+z1ZMh-%!ZmTSNAp8YodP@7FYPRGySLCD{y~hpZJd1T<WvxIX2b3`37ZS)arUbtdd2c
+zzX$S|+PY9Dxy1U_b88&qRrWhV8-vc+Y09-@{1wknLNmaDJ=xn8m${a2Ug(hiv>K9g
+zD_pH#w=_2?m?QT9JYzheGvc&Who>)fNKa6{>VCB_R8}F4x}__$n1##I*BEc*&aF-G
+z*3G#OO*Jf*4?KhoL;rpsNgM2|9)uR9hKcx;8{bmh6Mb&o%Wmg`_iTLSMd%;&GT$Y_
+zLhkhbULfCp?4jwp5As?^v-)*DZC86sy!BUSnJWHV#+!Vl=bZgzyPMjdiaVG8*1F0t
+zD)6~hG+k`(Rao`ki%68V^ji!XyAPmFzKn6iZhXxVRLS6Oa%J&dUY63ZsEDT*>nH}t
+zBI-3)6PiNv>$q0#cct%RP+M%(Nv%;}ZLrMx><DERdzRQWXip_nNj_SMRRxQst}%Y>
+z36i1C`_>Tl;z3wlaqg>LRiES647ROgY3n3A;xBQkCnDqW?d9Beh~-i4nXZOccl8pZ
+zan@HVJbPTE%DU)>m{m5$oo2qPsIU%qFCG%^CRa}WOY5vOzfjzT){d^N<`kEYQ+PB(
+zQLe7|=R<;Bd|dka(dSyD7x-*QQ1<&RNL*R_0C<mV)cD4SD?><yO9-LW?%nKBuClbN
+z>B;q4i2Y@ESa<c!@$L+v220CIuf{ZbWTg;W7&RpmpIa&A8oG+j?A6LD_beVY{;E0_
+z9~Mn^Q#@;|7=F_mLo0~8<8hbuC+_9pv2ygVaJTISJ!<NV_kwo)MI5e)tzgSw$2=|X
+zdm<BViq{M+%u6i|G4ZG6x9cMo&-ll97Yo^*Xn@4Kk*}_+(AcX#j`anlF37Vtck4Og
+zx&9bbWDhM=$iWaQOLJqa4TCl34UIZW5?goTc~CKZkl6LWo-(bP-jx4&FEj3&@1N?*
+zqaVvFD&6Ro;=Z1cz3wbRdW2BTtml>L$pPvO(Ibf31u)sJ{&04n(o_hGdO}55ELOjI
+zNU%!I^orn;lhpX#9ZshVB!?BFo3j5<&!2<uiybN2(93mHI%6QQ80}^^f6Uus&!&@>
+znn}X{Mtb^+PQ069erCV9<(TX~WuRzUUDi$iy*MTZpLfv)=6nT1cm}DZxs*JXDohQk
+z7~Oy8w0LZx8i!5k@Z){0)4t6O?ykuXcD6e&b(C>)aOKChR5r##mfa`kUw<PZD<q^C
+zc+BOA)WgyU0d|({7uts2wDjY%R-6X9Ij|!{H{HdmC4P|?u$1F@k#?;+i&L!RI2@K=
+zo!6U!|7Ph_u}SX)@&R37(2Z@emQqEH#TwoO9fF*0h<m$Oc*QOPd#|XmG)L4$$F<n%
+zrXO1~j$IO8S8Fa=Yibjafup6hsa+W8+Tmb0OjvZ@0=pah3`UDZt?^~`>ah5og!J-;
+zXge1prKeA|_K4APyVyN%V5`<Baf>?4)}`d{(wU&Rd$Zc##i~}zdeD9}zD3n=^BDE8
+zdq|&8h<>%V5z-UNMel@NpW3h<wTB1!`Qn&XR(8YX8Z-6v=hWkZmDQZL$-X#EgAK0x
+zl+ixKt;u(A$L->vXUtLQa<rG7xiRXS&LQwHoh`sr><NVYIaYvavIJ94P5}=&$722O
+zI-$*b9qXYa?WU7Y9gai$b3T`t$U{1GLGxGSb?=?4>gd*5o*{<1i3rwVNOLOiHZp5<
+zH<sEimeivwj%xY!o5}HO8B;yMnC5c9F!<wqag~*70gWDu*hWZlXmlcg$YQvgb7AXf
+z5qh9vStI)NwP_cBbA|CNc9w^rzk}Z!sFf&qUD`8%>Q;7AVw)4`BoCsQB{U%4qCNt<
+z9o>!I4CT+^o7FLqN!Mhqih=7gzw)eBl2|LO5}V-%);U=TvPzfxbHEby{vh?T#5<sR
+zKCvqX7r$4uluArp@wMzo<}!TbzKZ>4=H+PzPlren&gekGshwD~)qITLxL|;Y?NzbY
+zs(P$+Q$Ixn*>y?--@a3tdI~+U1*k5#ox`ua$ky|UB#k~b>9186r@B-ae>NCjy@p<P
+zJQyFkV0=pt6McFZK9{qRcca02Z{9Ub{YU;Xb$C9M1iv_*@8vyw*aL=lvL(IM?g$s*
+zPx;>4WqEdMh&iASc<#K6@K|o&s$Gj!Qm$9yv)e+2@H0`dWqIF|8Z_S1{evt!@6=*$
+z7Ntd3Lnr5=&-S&d$9G2wb(71^?M2e<ZPvO&QLBVD#a>$#%q$2VnD0%QE$}R5Pvv@b
+zN#42nGqZB<&k(co64`rPcI@lZ>3Vra*4{mxm<}=?Eymgx$FLmr(biW#B|O~9YbZlX
+z*z6DkZdJXnSYCOXpMXAyCsk8`d#YXQ_H|+PS|f*w)pWg__KV+tSmvctq&#EhtMiWW
+zM)~`LFw_j1kWSk7V00eZ9sQ0-3@j@u8`$53R3$ow{N{VQV~7e*?Hr`|!6s-HZFn@N
+zATnQ!ho%U}yHFT!wlLng{&<$QJ~aX^@~5FPI#O;S#|B+1iyg%0^JpP92O1*mCyoW{
+zPQ0v-$vFEe?DFS3L(b-1EQ^sti<9{waMF%79Xsos(@NK~ld{fm9lBysFc#AMhm)9r
+zw{NBdR-_x8pf!3;axU#h3h_SRN-9}<0voYzA89T|zp)`))Bzg^yGVP?BHx<vF5e2N
+zlK4w;#G=167mRp1AJMM!2m9+hteqduKkUK;9}-=8Q2H8bf5So1&^YJS^*%Z5@H+}U
+z82pD4PqV4`(|W43?tt3LE8Dfosh8WM+agVug^E;q)~}eeFv5K)Ax+w|6()oZi%<}4
+z3Zb|tJma9S6gtKbn!gT1?dL;7E+_J`D3qhIvbzEuyV&B<Lbp2%S-?fV*<rNrULut7
+z9bq?y&}e)0`--}NllZVyh}KbuzxV#>Ay>@?&$C?8ehphl186*=jac(mGpn9vCzan%
+zS6u&4N>$rsO=L}-g@D{aJI?IFVX-#M={HyNXx%xXe=MjSiIB3stK!?MMSVg>UCqa(
+zqeqA}<%V7!oq;y43;y&Tu~m2q4T}AsvUqP1k&s>-7d(;AU&qpWlV+?jR@P+224Us=
+z5c1>TZTi@%hL-ztL%_K=Ij3F}6iXD_S5m8gN*qx6em;-<Hn(o^*<$q@mvfunjpu8n
+zIb%d2*YPYJU)-l{dndP!h_q3wLL?Qt1>VF?C2BFay2r(As-AT(!2Hw!;#su{GLU_i
+zbVtHkppUs)vl@HeAO4+QvADli=HcR+!}=6OTCH0TK2uB3RdDW?Gs;h7jX38(<AZj^
+zUK%r%tu*4ZX@0h9P0?Pr1xr*SvELi33agxbjoadXlV{P~&;tQRn|_OW0Dac%?vpg<
+zO!R}%w3FGq=uuY#?`obLzlA<y{E1$dy)<XdzNxM(jhOD85FM*l%%(_SzdFD<H-x2e
+z5EfAk&SKtMs{>+DO?U3fUUGkJL9ABI!?`U%%$?ng@DiT1#dI3+<gyP=wX8;xwuKgm
+zDr<g%YTuAnKGG4bgg#Mu22cVK<wg08zY64`y=iB1y0e*_7hdd1-g_$NJk7UT=+1Tq
+zT`~4?TrB71Jf^7KGg71l=(W1m$bYK+KJ=^$i|xZuHRbYF$Arr13PbM9*=s}=!?l@B
+zf__w%(2vFTHMa0}$BjjL2VOjrG@)}8V4-ullTmBKP$pN^Gb#<BPl&5wV_NtZlAzTp
+z_+91XC7}zXph}Qw;XzL9vvWy9!&l9PIEzL%=lbhWruD9Dt7g<hE>!m&Sj?xPF(-4p
+zYGjSG3__`#Mz!I|+`A;sO-$z5f*zq>oV&zrsLzOL{WK~H>gF(&XEa>w32U}2b6kw5
+zTbVg6J|Z|*3kJ>O>pXkAHQOO)gcOyAys4kZ2XdR-$x+J_X-I#afrBx`cysS44gRj1
+z3-U>KdsJz#G^~lbIb6;q7S(QOWJ^zJoYJN6PYXY5ypBBU)d6{q4<um+DdfdkowI^(
+zy4f%T$022jdM+X8XL5-X+tHK;bu^1#gpxiDy{ptg6^ouIpc%WX!MS-@ndma=S}k{`
+z;g_Bf`rwphcEMrgXy#vcw})8oDmEHwAP?{35|Kgb-4&SiYypemOG)tIIf0UV>nZuY
+zBeH`T5EaELi%IP?q=$nViAToL;x-Ly%R#BH?j%sB&$n{Ubde!DgS7CBoYpGfkn1ia
+zMZ-k(pUL?S3NCBDw4g2PmJqjT$p@hIHKa3QEkO}Tju7fJ^oHX+-Gf=Tb07^*AcXgn
+z;F_E=7{}+ddkQSh)1qs|x%%sOBDu9R{FV^o<k)pLkjjlZikVJI=7rpsip<cuO5N##
+z9402~It`WOaw@vcLLK7vS`zE7`BToV!ba;!^#|{W&A4o^M(<T#Yb~^m9ftEtBU3yl
+zQ3CZv{EnkJnb)>d|3WcMVufjVURWW^d2Cj@ZLuz_6LvKj?;YWU>;1kDG5P4KD7%e#
+z#%Dp-eyz_8X($c31I)y6TsKSThI>wzTD_Sr)Wx167V0#5z3hF@QL$oZLRKcEpj4=y
+zegXJo><hpv)_%2mHlT%hH3^MiR|5YM-9Y_dth04kZDapBT$MC*gN3n9xA}e);Y`xV
+zBkg4-Zs$Qbk2I|3z04zoKaC2WvhPiGY<x%El<?D{@RGMn!WpGOS$mn$gv_X%^FEC8
+zz@oBJc`*s8yqEQGz5QmzdMU>;)8P2>eEc1{Uz16Q#|YE#?mV<^cT32{Y1o25>7#7L
+z-U6<hSO|3*S&tBE^;=w(vgOV+e6&H{rt_-t<JjkMIA<{^XO;%d$JfF~11#>-h<0jS
+zo_102ettQ&m4;vAq=(D$UCezPs>*byUno`5h;TZXL)g-&9t?dbOQC6KJm)|7oOFoE
+zH0nnkl&V9T#4Ddn!oG8Ghr9jR6<F*lU@0Rloa-Dc=CMF5+-XPzhx3q*r;?zD5T>qn
+zNrZCAb?vpQ`9dFK_s-td;tuL9iT`T9cIbFZENc22(?<ZxMnkX5JEHKqheT`Uj!LJT
+zF`mYF(vC?7O;0~LH8C^&h3o(J{{Omo`k(&q9dADQmhZpk{x3iMqaT0mdy_9tz5WM3
+ZeB*Z)-^vDT{@vIAxBG^@zwRDy{vY?OwxIw3
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestResults/bf1912ca-85f2-43fc-866c-7b4a9eff644f/malik_MALIK-PC 2018-06-09 21_06_38.coverage b/TestResults/bf1912ca-85f2-43fc-866c-7b4a9eff644f/malik_MALIK-PC 2018-06-09 21_06_38.coverage
+new file mode 100644
+index 0000000000000000000000000000000000000000..2b294c0090d62d14112cbc8040661dd3106b9e85
+GIT binary patch
+literal 101282
+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
+aAKZU;`fY5$=HGq&e>-p3`|IxU=Kld(eYGV3
+
+literal 0
+HcmV?d00001
+
+-- 
+2.17.0.windows.1
+
