@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace CrossSolar.Domain
 {
@@ -6,12 +7,16 @@ namespace CrossSolar.Domain
     {
         public int Id { get; set; }
 
-        [Required] public double Latitude { get; set; }
+        [Required]
+        public double Latitude { get; set; }
 
         public double Longitude { get; set; }
 
-        [Required] public string Serial { get; set; }
+        [Required]
+        [StringLength(maximumLength: 16, MinimumLength = 16)]
+        public string Serial { get; set; }
 
         public string Brand { get; set; }
+
     }
 }

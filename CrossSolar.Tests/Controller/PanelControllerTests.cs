@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using CrossSolar.Controllers;
 using CrossSolar.Models;
 using CrossSolar.Repository;
+using FizzWare.NBuilder;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
@@ -20,18 +21,12 @@ namespace CrossSolar.Tests.Controller
         private readonly Mock<IPanelRepository> _panelRepositoryMock = new Mock<IPanelRepository>();
 
         [Fact]
-        public async Task Register_ShouldInsertPanel()
+        public async Task Register_ShouldIsnsertPanel()
         {
-            var panel = new PanelModel
-            {
-                Brand = "Areva",
-                Latitude = 12.345678,
-                Longitude = 98.7655432,
-                Serial = "AAAA1111BBBB2222"
-            };
-
+           
             // Arrange
-
+            var panel = Builder<PanelModel>.CreateNew()
+              .Build();
             // Act
             var result = await _panelController.Register(panel);
 

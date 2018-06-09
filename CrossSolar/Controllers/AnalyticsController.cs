@@ -24,13 +24,14 @@ namespace CrossSolar.Controllers
         }
 
         // GET panel/XXXX1111YYYY2222/analytics
-        [HttpGet("{banelId}/[controller]")]
+        [HttpGet("{panelId}/[controller]")]
         public async Task<IActionResult> Get([FromRoute] string panelId)
         {
             var panel = await _panelRepository.Query()
                 .FirstOrDefaultAsync(x => x.Serial.Equals(panelId, StringComparison.CurrentCultureIgnoreCase));
 
-            if (panel == null) return NotFound();
+            if (panel == null)
+                return NotFound();
 
             var analytics = await _analyticsRepository.Query()
                 .Where(x => x.PanelId.Equals(panelId, StringComparison.CurrentCultureIgnoreCase)).ToListAsync();
@@ -52,7 +53,24 @@ namespace CrossSolar.Controllers
         [HttpGet("{panelId}/[controller]/day")]
         public async Task<IActionResult> DayResults([FromRoute] string panelId)
         {
-            var result = new List<OneDayElectricityModel>();
+            var panel = await _panelRepository.Query()
+               .FirstOrDefaultAsync(x => x.Serial.Equals(panelId, StringComparison.CurrentCultureIgnoreCase));
+
+            if (panel == null)
+                return NotFound();
+
+            var data = await _analyticsRepository.Query()
+                .Where(x => x.PanelId.Equals(panelId, StringComparison.CurrentCultureIgnoreCase))
+                .GroupBy(x => x.DateTime.Date).ToListAsync();
+
+                var result = data.Select(x => new OneDayElectricityModel
+                {
+                    Sum = x.Sum( c => c.KiloWatt),
+                    Average = x.Average(c => c.KiloWatt),
+                    Maximum = x.Max(c => c.KiloWatt),
+                    Minimum = x.Min(c => c.KiloWatt),
+                    DateTime = x.Key
+                });
 
             return Ok(result);
         }
@@ -61,7 +79,14 @@ namespace CrossSolar.Controllers
         [HttpPost("{panelId}/[controller]")]
         public async Task<IActionResult> Post([FromRoute] string panelId, [FromBody] OneHourElectricityModel value)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var panel = await _panelRepository.Query()
+                .FirstOrDefaultAsync(x => x.Serial.Equals(panelId, StringComparison.CurrentCultureIgnoreCase));
+
+            if (panel == null)
+                return NotFound();
 
             var oneHourElectricityContent = new OneHourElectricity
             {

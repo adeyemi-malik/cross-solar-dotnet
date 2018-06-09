@@ -22,6 +22,7 @@ namespace CrossSolar.Domain
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
         }
     }
 }
